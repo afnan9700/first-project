@@ -8,7 +8,6 @@ function requireAuth(req, res, next) {
     if (!token) {
         return res.status(401).json({ message: "Not authenticated" });
     }
-
     try {
         // verifying the jwt using our secret key and storing the decoded payload
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -16,6 +15,7 @@ function requireAuth(req, res, next) {
         req.user = decoded;
         next();
     } catch (err) {
+        console.log(err);   
         return res.status(401).json({ message: "Token invalid or expired" });
     }
 }

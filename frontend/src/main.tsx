@@ -6,7 +6,7 @@ import RegisterPage from './pages/RegisterPage';
 import LoginPage from "./pages/LoginPage"; 
 import './index.css';
 
-document.documentElement.classList.add("dark");
+// document.documentElement.classList.add("dark");
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>

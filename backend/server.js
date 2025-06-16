@@ -17,7 +17,7 @@ const app = express();
 const whitelist = ["http://localhost:5000", "http://localhost:5173"];
 app.use(cors({
   origin: (origin, callback) => {
-    if (whitelist.indexOf(origin) !== -1) {
+    if (!origin || whitelist.indexOf(origin) !== -1 ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -25,6 +25,7 @@ app.use(cors({
   },
   credentials: true
 }));
+
 // using the json middleware to enable automatic json parsing for requests
 app.use(express.json());
 // using the coookieparser middleware to parse the cookies attached in the requests

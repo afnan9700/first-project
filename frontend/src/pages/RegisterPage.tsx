@@ -26,7 +26,7 @@ const RegisterPage = () => {
         credentials: "include"
       });
       
-      // 
+      // res.json() returns a promise, so calling it asynchronously
       const data = await res.json();
       
       // modifying the state based on the received response
@@ -49,6 +49,7 @@ const RegisterPage = () => {
       { /* Main form element */ }
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
+          {/* username field */}
           <Label htmlFor="username">Username</Label>
           <Input
             id="username"
@@ -58,6 +59,7 @@ const RegisterPage = () => {
           />
         </div>
         <div>
+          {/* password field */}
           <Label htmlFor="password">Password</Label>
           <Input
             id="password"

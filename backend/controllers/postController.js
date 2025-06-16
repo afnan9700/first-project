@@ -78,4 +78,46 @@ const getPosts = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getPostById, getPosts };
+// function to handle upvotes and downvotes
+const voteOnPost = async (req, res) => {
+  // user is added to the request by the authMiddleware
+  const userId = req.user.userId;  
+  const { postId } = req.params;  
+  const { value } = req.body;
+
+  if (![1, -1].includes(value)) {
+    return res.status(400).json({ error: 'Vote value must be 1 or -1' });
+  }
+
+  try {
+    // fetching the post from database
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    
+    // checking if a vote has already been made by searching the post's "votes" array
+    const existingVote = post.votes.find(v => v.user.toString() === userId.toString());
+    
+    // voting logic
+    if (existingVote) {
+      if (existingVote.value === value) {
+        post.votes = post.votes.filter(v => v.user.toString() !== userId.toString());
+        post.voteCount -= value;
+      } else {
+        post.voteCount += 2 * value;
+        existingVote.value = value;
+      }
+    } else {
+      post.votes.push({ user: userId, value });
+      post.voteCount += value;
+    }
+    
+    // saving the vote to db and sending the response
+    await post.save();
+    res.json({ voteCount: post.voteCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error while voting' });
+  }
+};
+
+module.exports = { createPost, getPostById, getPosts, voteOnPost };
