@@ -34,10 +34,12 @@ app.use(cookieParser());
 // importing the routers
 const authRoutes = require("./routes/authRoute");
 const postRoutes = require("./routes/postRoute");
+const commentRoutes = require("./routes/commentRoute");
 
 // attaching the routers to the routes
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/", commentRoutes);
 
 // testing
 app.get("/", (req, res) => {

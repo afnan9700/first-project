@@ -85,6 +85,7 @@ const voteOnPost = async (req, res) => {
   const { postId } = req.params;  
   const { value } = req.body;
 
+  // checking if the value is valid
   if (![1, -1].includes(value)) {
     return res.status(400).json({ error: 'Vote value must be 1 or -1' });
   }

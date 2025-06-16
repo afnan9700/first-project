@@ -1,6 +1,9 @@
+// importing the necessary stuff
 const mongoose = require("mongoose");
 
+// main schema
 const postSchema = new mongoose.Schema({
+  // the elementary stuff
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   content: { type: String },
