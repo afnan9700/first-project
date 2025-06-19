@@ -7,6 +7,7 @@ const postSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   content: { type: String },
+  board: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', default: null },
 
   // total votes
   voteCount: { type: Number, default: 0 },
@@ -19,7 +20,11 @@ const postSchema = new mongoose.Schema({
     }
   ],
 
-  createdAt: { type: Date, default: Date.now },
-});
+  // flag for soft deletion
+  deleted: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
 
 module.exports = mongoose.model("Post", postSchema);

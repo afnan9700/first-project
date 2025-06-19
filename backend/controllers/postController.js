@@ -4,7 +4,7 @@ const Post = require("../models/postModel");
 // function to add the post to db
 const createPost = async (req, res) => {
   // loading the variables from request
-  const { title, content } = req.body;
+  const { title, content, board } = req.body;
 
   if (!title) {
     return res.status(400).json({ message: "Title is required" });
@@ -16,6 +16,7 @@ const createPost = async (req, res) => {
       title,
       content,
       author: req.user.userId,  // getting the _id of the user from user.userId (user header was added by requireAuth middleware)
+      board
     });
 
     // adding the post to the db
@@ -121,4 +122,92 @@ const voteOnPost = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getPostById, getPosts, voteOnPost };
+// get all posts of a board
+const getPostsByBoard = async (req, res) => {
+  // boardId passed as route param
+  const { boardId } = req.params;
+
+  try {
+    // fetching board's posts and populating author fields
+    const posts = await Post.find({ board: boardId })
+      .sort({ createdAt: -1 })
+      .populate('author', 'username')
+
+    // sending response
+    return res.status(200).json(posts);
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch posts" });
+  }
+};
+
+// handler to edit a post
+const editPost = async (req, res) => {
+  const { postId } = req.params;
+  const { content } = req.body;
+  
+  try {
+    // checking post existence
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    // verifying user
+    if (!post.author.equals(req.user.userId)) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    // editing logic
+    post.content = content;
+    await post.save();
+    res.json({ message: "Post updated", post });
+  }
+  catch(err){
+    console.error("Error editing post:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// handler to delete a post
+const deletePost = async (req, res) => {
+  const { postId } = req.params;
+
+  try {
+    // checking post existence
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    // verifying user (must be either the author or mod)
+    const isAuthor = post.author.equals(req.user.userId);
+    let isMod = false;  // if post was made to a board, the mod also has access to delete it
+    
+    // checking if the post was made to a board
+    if (post.board) {
+      const board = await Board.findById(post.board);
+      isMod = board?.moderators.includes(req.user.userId.toString());  // verifying board's mod
+    }
+
+    if (!isAuthor && !isMod)
+      return res.status(403).json({ error: "Not authorized" });
+
+    // we hard delete if post has no comments
+    const hasComments = await Comment.exists({ post: post._id });
+
+    if (hasComments) {
+      // Soft delete
+      post.deleted = true;
+      post.content = '[removed]'; // optional
+      await post.save();
+    } else {
+      // hard delete
+      await post.deleteOne();
+    }
+
+    res.json({ message: "Post deleted" });
+  }
+  catch(err){
+    console.error("Error deleting post:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+module.exports = { createPost, getPostById, getPosts, voteOnPost, getPostsByBoard, editPost, deletePost };

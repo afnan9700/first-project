@@ -21,6 +21,12 @@ const commentSchema = new mongoose.Schema({
   // votes for the comment
   votes: [voteSchema],
   voteCount: { type: Number, default: 0 },
+
+  // flag for soft deletion
+  deleted: {
+    type: Boolean,
+    default: false
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Comment', commentSchema);

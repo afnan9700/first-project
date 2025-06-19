@@ -1,0 +1,7 @@
+const express = require('express');
+const { deleteUser } = require('../controllers/userController');
+const requireAuth = require('../middleware/authMiddleware');
+
+const router = express.Router();
+
+router.delete("/me", requireAuth, deleteUser); 

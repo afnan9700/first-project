@@ -117,5 +117,73 @@ const voteOnComment = async (req, res) => {
   }
 };
 
+// handler to edit a comment
+const editComment = async (req, res) => {
+  const { commentId } = req.params;
+  const { content } = req.body;
+  
+  try {
+    // checking comment existence
+    const comment = await Comment.findById(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    // verifying user
+    if (!post.author.equals(req.user.userId)) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
 
-module.exports = { createComment, getPostComments, getCommentReplies, voteOnComment };
+    // editing logic
+    comment.content = content;
+    await comment.save();
+    res.json({ message: "Comment updated", comment });
+  }
+  catch(err){
+    console.error("Error editing comment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// handler to delete a comment
+const deleteComment = async (req, res) => {
+  const { commentId } = req.params;
+
+  try {
+    // checking comment existence
+    const comment = await Comment.findById(commentId);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    // verifying user (must be either the author or mod)
+    const isAuthor = post.author.equals(req.user.userId);
+    let isMod = false;  // if comment was made to a board, the mod also has access to delete it
+    
+    // checking if the comment was made to a board
+    const post = await Post.findById(comment.post);
+    if (post.board) {
+      const board = await Board.findById(post.board);
+      isMod = board?.moderators.includes(req.user.userId.toString());  // verifying board's mod
+    }
+
+    if (!isAuthor && !isMod)
+      return res.status(403).json({ error: "Not authorized" });
+
+    // we hard delete if a comment has no replies
+    const hasReplies = await Comment.exists({ replyTo: comment._id });
+
+    if (hasReplies) {
+      // soft delete
+      comment.deleted = true;
+      comment.content = '[deleted]'; // optional
+      await comment.save();
+    } else {
+      // hard delete
+      await comment.deleteOne();
+    }
+
+    res.json({ message: "Comment deleted" });
+  }
+  catch(err){
+    console.error("Error deleting comment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+module.exports = { createComment, getPostComments, getCommentReplies, voteOnComment, editComment, deleteComment };
