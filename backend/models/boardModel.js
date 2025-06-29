@@ -9,8 +9,9 @@ const boardSchema = new mongoose.Schema({
   tags: [{ type: String }],
   deleted: { type: Boolean, default: false },
   
-  // references to members and moderators
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // number of members in the board
+  membersCount: { type: Number, default: 1 },
+  // references to moderators
   moderators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -22,6 +23,6 @@ boardSchema.pre(/^find/, function (next) {
     this.where({ deleted: false });  // filtering results which have 'deleted: true'
   }
   next();
-});
+}); 
 
 module.exports = mongoose.model('Board', boardSchema);

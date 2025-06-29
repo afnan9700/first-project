@@ -28,11 +28,14 @@ const createBoard = async (req, res) => {
       name,
       description,
       tags: tags || [],
-      members: [userId],
+      membersCount: 1,
       moderators: [userId],
       createdBy: userId
     });
     await board.save();
+
+    // adding board to the user's joinedBoards list
+    await User.findByIdAndUpdate(userId, { $addToSet: { joinedBoards: board._id } });
 
     // sending the response
     return res.status(201).json({ message: "Board created successfully.", board });
@@ -56,13 +59,11 @@ const joinBoard = async (req, res) => {
     if (!board) return res.status(404).json({ error: 'Board not found' });
 
     // joining logic
-    if (!board.members.includes(userId)) {
-      board.members.push(userId);
-      await board.save();
-    }
     if (!user.joinedBoards.includes(boardId)) {
       user.joinedBoards.push(boardId);
+      board.membersCount += 1;
       await user.save();
+      await board.save();
     }
 
     // sending response
@@ -85,13 +86,24 @@ const leaveBoard = async (req, res) => {
 
     if (!board) return res.status(404).json({ error: 'Board not found' });
 
-    // leaving logic
-    board.members = board.members.filter(id => id.toString() !== userId.toString());
-    user.joinedBoards = user.joinedBoards.filter(id => id.toString() !== boardId.toString());
-    await board.save();
-    await user.save();
+    if (user.joinedBoards.includes(boardId)) {
+      // checking if user is the last moderator
+      if (board.moderators.length === 1 && board.moderators.includes(userId)) {
+        return res.status(400).json({
+          error: `Cannot leave board. You are the last moderator. Please transfer moderation rights first.`,
+        });
+      }
 
-    res.json({ message: 'Left board' });
+      // leaving logic
+      user.joinedBoards = user.joinedBoards.filter(id => id.toString() !== boardId.toString());
+      if (board.moderators.includes(userId))
+        board.moderators = board.moderators.filter(id => id.toString() !== userId.toString());
+      board.membersCount = Math.max(0, board.membersCount - 1); // safe decrement
+      await user.save();
+      await board.save();
+
+      res.json({ message: 'Left board' });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
@@ -107,9 +119,9 @@ const getUserBoards = async (req, res) => {
   try {
     // populating user's board attribute with name, descriptiona, tags
     if (!user) return res.status(404).json({ error: "User not found" });
-    const user = await User.findById(userId).populate('boards', 'name description tags');
+    const user = await User.findById(userId).populate('joinedBoards', 'name description tags');
 
-    return res.status(200).json(user.boards);
+    return res.status(200).json(user.joinedBoards);
 
   } catch (err) {
     console.error(err);
@@ -142,13 +154,14 @@ const promoteToModerator = async (req, res) => {
   const { userId } = req.body;
   
   try {
+    const user = await User.findById(userId);
     // checking if the user is a member
-    const board = await Board.findById(boardId);
-    if (!board.members.includes(userId)) {
+    if (!user.joinedBoards.includes(boardId)) {
       return res.status(400).json({ error: "User is not a member" });
     }
     
     // making sure that the member isn't already a mod
+    const board = await Board.findById(boardId);
     if (!board.moderators.includes(userId)) {
       board.moderators.push(userId);
       await board.save();
@@ -200,10 +213,15 @@ const kickMember = async (req, res) => {
       return res.status(400).json({ error: "User is a moderator" });
     }
 
-    board.members = board.members.filter(id => id !== memberId);
-    
-    await board.save();
-    res.json({ message: "User removed from board" });
+    const member = await User.findById(memberId);
+    if (member.joinedBoards.includes(boardId)) {
+      member.joinedBoards = member.joinedBoards.filter(id => id.toString() !== boardId.toString());
+      board.membersCount = Math.max(0, board.membersCount - 1);
+      await member.save();
+      await board.save();
+      
+      res.json({ message: "User removed from board" });
+    }
   }
   catch(err) {
     console.error(err);

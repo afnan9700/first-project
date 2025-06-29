@@ -21,6 +21,8 @@ router.get('/user/:userId', getUserBoards);
 router.post('/:boardId/join', requireAuth, joinBoard);
 router.post('/:boardId/leave', requireAuth, leaveBoard);
 router.get('/board/:boardId', getPostsByBoard);
+
+// mod related routes
 router.patch('/board/:boardId', requireAuth, requireModerator, editBoard);
 router.delete("/:boardId", requireAuth, requireModerator, deleteBoard);
 router.post('/boards/:boardId/moderators/promote', requireAuth, requireModerator, promoteToModerator);
