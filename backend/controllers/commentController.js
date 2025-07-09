@@ -133,6 +133,7 @@ const editComment = async (req, res) => {
 
     // editing logic
     comment.content = content;
+    comment.updatedAt = new Date();
     await comment.save();
     res.json({ message: "Comment updated", comment });
   }

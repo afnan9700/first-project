@@ -17,6 +17,7 @@ const commentSchema = new mongoose.Schema({
   // elementary stuff
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   content: { type: String, required: true },
+  updatedAt: { type: Date, default: null },
   
   // votes for the comment
   votes: [voteSchema],
@@ -24,6 +25,6 @@ const commentSchema = new mongoose.Schema({
 
   // flag for soft deletion
   deleted: { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: { createdAt: 'createdAt', updatedAt: false } });
 
 module.exports = mongoose.model('Comment', commentSchema);

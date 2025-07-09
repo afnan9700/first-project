@@ -158,6 +158,7 @@ const editPost = async (req, res) => {
 
     // editing logic
     post.content = content;
+    post.updatedAt = new Date();
     await post.save();
     res.json({ message: "Post updated", post });
   }

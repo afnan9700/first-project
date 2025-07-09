@@ -8,6 +8,7 @@ const postSchema = new mongoose.Schema({
   title: { type: String, required: true },
   content: { type: String },
   board: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', default: null },
+  updatedAt: { type: Date, default: null },
 
   // total votes
   voteCount: { type: Number, default: 0 },
@@ -25,6 +26,6 @@ const postSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   }
-}, { timestamps: true });
+}, { timestamps: { createdAt: 'createdAt', updatedAt: false } });
 
 module.exports = mongoose.model("Post", postSchema);
