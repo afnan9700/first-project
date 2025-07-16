@@ -115,12 +115,11 @@ const leaveBoard = async (req, res) => {
 const getUserBoards = async (req, res) => {
   // userId in the route params
   const { userId } = req.params;
-
+  
   try {
     // populating user's board attribute with name, descriptiona, tags
+    const user = await User.findById(userId).populate('joinedBoards', 'name tags');
     if (!user) return res.status(404).json({ error: "User not found" });
-    const user = await User.findById(userId).populate('joinedBoards', 'name description tags');
-
     return res.status(200).json(user.joinedBoards);
 
   } catch (err) {

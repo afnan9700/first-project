@@ -1,5 +1,5 @@
 // importing the necessary stuff
-const Board = require("../models/Board");
+const Board = require("../models/boardModel");
 
 // main middleware function
 const requireModerator = async (req, res, next) => {

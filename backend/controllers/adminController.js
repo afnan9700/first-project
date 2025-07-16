@@ -34,3 +34,5 @@ const deleteAllData = async (req, res) => {
     res.status(500).json({ error: "Failed to delete data." });
   }
 };
+
+module.exports = { getStats, deleteAllData };

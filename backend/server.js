@@ -35,13 +35,17 @@ app.use(cookieParser());
 const authRoutes = require("./routes/authRoute");
 const postRoutes = require("./routes/postRoute");
 const commentRoutes = require("./routes/commentRoute");
-const boardRoutes = require('./routes/boardRoutes');
+const boardRoutes = require('./routes/boardRoute');
+const feedRoutes = require('./routes/feedRoute');
+const adminRoutes = require('./routes/adminRoute');
 
 // attaching the routers to the routes
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/", commentRoutes);
 app.use('/api/boards', boardRoutes);
+app.use('/api/feed', feedRoutes);
+app.use('/api/', adminRoutes);
 
 // testing
 app.get("/", (req, res) => {

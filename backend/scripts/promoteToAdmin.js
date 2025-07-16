@@ -2,11 +2,12 @@
 /* run `node promoteToAdmin.js` */
 // importing necessary stuff
 const mongoose = require("mongoose");
-const User = require("../models/User");
+const User = require("../models/userModel");
 
 // set your username here
-const username = "";
+const username = "johndoe";
 
+require("dotenv").config(); 
 // connecting to mongodb
 mongoose.connect(process.env.MONGO_URI).then(async () => {
   // fetching the user
