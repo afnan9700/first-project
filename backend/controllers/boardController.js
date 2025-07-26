@@ -143,7 +143,7 @@ const editBoard = async (req, res) => {
   }
   catch(err) {
     console.error(err);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -170,7 +170,7 @@ const promoteToModerator = async (req, res) => {
   }
   catch(err) {
     console.error(err);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -195,7 +195,7 @@ const demoteSelf = async (req, res) => {
   }
   catch(err){
     console.error(err);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -224,7 +224,7 @@ const kickMember = async (req, res) => {
   }
   catch(err) {
     console.error(err);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 

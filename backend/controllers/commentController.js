@@ -138,8 +138,8 @@ const editComment = async (req, res) => {
     res.json({ message: "Comment updated", comment });
   }
   catch(err){
-    console.error("Error editing comment:", err);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error editing comment: ", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -183,8 +183,22 @@ const deleteComment = async (req, res) => {
   }
   catch(err){
     console.error("Error deleting comment:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-module.exports = { createComment, getPostComments, getCommentReplies, voteOnComment, editComment, deleteComment };
+const getCommentsByUser = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const comments = await Comment.find({ author: userId, deleted: false })
+      .populate('post', 'title') // include post title
+      .sort({ createdAt: -1 });
+
+    res.json({ comments });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+module.exports = { createComment, getPostComments, getCommentReplies, voteOnComment, editComment, deleteComment, getCommentsByUser };

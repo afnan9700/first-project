@@ -6,7 +6,7 @@ function requireAuth(req, res, next) {
     // loading the token into a variable from the recieved request
     const token = req.cookies.token;
     if (!token) {
-        return res.status(401).json({ message: "Not authenticated" });
+        return res.status(401).json({ error: "Not authenticated" });
     }
     try {
         // verifying the jwt using our secret key and storing the decoded payload
@@ -16,7 +16,7 @@ function requireAuth(req, res, next) {
         next();
     } catch (err) {
         console.log(err);   
-        return res.status(401).json({ message: "Token invalid or expired" });
+        return res.status(401).json({ error: "Token invalid or expired" });
     }
 }
 

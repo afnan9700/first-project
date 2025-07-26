@@ -7,7 +7,7 @@ const createPost = async (req, res) => {
   const { title, content, board } = req.body;
 
   if (!title) {
-    return res.status(400).json({ message: "Title is required" });
+    return res.status(400).json({ error: "Title is required" });
   }
 
   try {
@@ -27,7 +27,7 @@ const createPost = async (req, res) => {
   } 
   catch (err) {
     console.error("Error creating post:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -42,7 +42,7 @@ const getPostById = async (req, res) => {
     const post = await Post.findById(postId).populate("author", "username");
 
     if (!post) {
-      return res.status(404).json({ message: "Post not found" });
+      return res.status(404).json({ error: "Post not found" });
     }
 
     // sending the response
@@ -50,7 +50,7 @@ const getPostById = async (req, res) => {
   } 
   catch (err) {
     console.error("Error fetching post:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -75,7 +75,7 @@ const getPosts = async (req, res) => {
   } 
   catch (err) {
     console.error("Error fetching posts:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -164,7 +164,7 @@ const editPost = async (req, res) => {
   }
   catch(err){
     console.error("Error editing post:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -207,8 +207,22 @@ const deletePost = async (req, res) => {
   }
   catch(err){
     console.error("Error deleting post:", err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-module.exports = { createPost, getPostById, getPosts, voteOnPost, getPostsByBoard, editPost, deletePost };
+const getPostsByUser = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const posts = await Post.find({ author: userId, deleted: false })
+      .populate('board', 'name') // populate board name
+      .sort({ createdAt: -1 }); // newest first
+
+    res.json({ posts });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+module.exports = { createPost, getPostById, getPosts, voteOnPost, getPostsByBoard, editPost, deletePost, getPostsByUser };

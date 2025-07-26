@@ -1,3 +1,21 @@
+const User = require('../models/userModel');
+const Board = require('../models/boardModel');
+
+const getUserById = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findById(userId).select('username createdAt deleted');
+
+    if (!user || user.deleted)
+      return res.status(404).json({ error: 'User not found' });
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // delete user handler
 const deleteUser = async (req, res) => {
   const user = req.user;

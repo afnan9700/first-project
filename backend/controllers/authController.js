@@ -11,13 +11,13 @@ const register = async (req, res) => {
 
     // if any fields were not provided
     if (!username || !password) {
-      return res.status(400).json({ message: "All fields are required." });
+      return res.status(400).json({ error: "All fields are required." });
     }
 
     // check if user already exists
     const existingUser = await User.findOne({ username });
     if (existingUser) {
-      return res.status(409).json({ message: "Username already taken." });
+      return res.status(409).json({ error: "Username already taken." });
     }
 
     // hashing the password
@@ -49,7 +49,7 @@ const register = async (req, res) => {
   catch (err) {
     // handling errors
     console.error("Register error:", err);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ error: "Internal server error." });
   }
 };
 
@@ -60,19 +60,19 @@ const login = async (req, res) => {
 
     // check if user already exists
     if (!username || !password) {
-      return res.status(400).json({ message: "All fields are required." });
+      return res.status(400).json({ error: "All fields are required." });
     }
 
     // find user. and if not found, send a response containing the message
     const user = await User.findOne({ username });
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials." });
+      return res.status(401).json({ error: "Invalid credentials." });
     }
 
     // compare the password entered. 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      return res.status(401).json({ message: "Invalid credentials." });
+      return res.status(401).json({ error: "Invalid credentials." });
     }
 
     // Generate JWT
@@ -93,7 +93,7 @@ const login = async (req, res) => {
   } 
   catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ error: "Internal server error." });
   }
 };
 
@@ -110,7 +110,7 @@ const logout = async (req, res) => {
   }
   catch (err) {
     console.error("Logout error:", err);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ error: "Internal server error." });
   }
 };
 

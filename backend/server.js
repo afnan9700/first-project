@@ -38,6 +38,7 @@ const commentRoutes = require("./routes/commentRoute");
 const boardRoutes = require('./routes/boardRoute');
 const feedRoutes = require('./routes/feedRoute');
 const adminRoutes = require('./routes/adminRoute');
+const userRoutes = require('/routes/userRoute');
 
 // attaching the routers to the routes
 app.use("/api/auth", authRoutes);
@@ -46,6 +47,7 @@ app.use("/api/", commentRoutes);
 app.use('/api/boards', boardRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/', adminRoutes);
+app.use('/api/users/', userRoutes);
 
 // testing
 app.get("/", (req, res) => {
