@@ -38,7 +38,7 @@ const commentRoutes = require("./routes/commentRoute");
 const boardRoutes = require('./routes/boardRoute');
 const feedRoutes = require('./routes/feedRoute');
 const adminRoutes = require('./routes/adminRoute');
-const userRoutes = require('/routes/userRoute');
+const userRoutes = require('./routes/userRoute');
 
 // attaching the routers to the routes
 app.use("/api/auth", authRoutes);
@@ -52,6 +52,19 @@ app.use('/api/users/', userRoutes);
 // testing
 app.get("/", (req, res) => {
     res.send("API running...");
+});
+
+const requireAuth = require('./middleware/authMiddleware');
+const User = require('./models/userModel');
+app.get('/api/me', requireAuth, async (req, res) => {
+  try {
+    // user = { _id, username }
+    const user = await User.findById(req.user.userId).select('_id username');
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    res.json({ user });
+  } catch (err) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // connecting to mongodb and starting the server
