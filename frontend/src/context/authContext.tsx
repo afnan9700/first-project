@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User } from '../types/index';
+
+type User = {
+    id: string;
+    username: string;
+}
 
 // type of the value provided by the context
 type AuthContextType = {

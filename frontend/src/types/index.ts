@@ -1,5 +1,1 @@
-export interface User {
-    id: string;
-    username: string;
-}
-
+// src/types/index.ts
