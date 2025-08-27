@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";  // for navigation links
 import { useAuth } from "../contexts/AuthContext";  // to access authentication state
-import type { NavItem } from "../types/index";  // import NavItem type
+import type { NavItem } from "../types";  // import NavItem type
 
 // type for props passed to NavBar component
 interface NavBarProps {
