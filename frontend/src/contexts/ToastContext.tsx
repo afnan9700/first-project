@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 // a variable of type ToastType can be 'success', 'error', or 'info'
 type ToastType = 'success' | 'error' | 'info';
 
+// main toast type (as interface)
 export interface Toast {
   id: string;
   message: string;
