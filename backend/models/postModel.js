@@ -5,9 +5,11 @@ const mongoose = require("mongoose");
 const postSchema = new mongoose.Schema({
   // the elementary stuff
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  authorName: { type: String, required: true },   // denormalized for easier access
   title: { type: String, required: true },
   content: { type: String },
   board: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', default: null },
+  boardName: { type: String, default: null }, // denormalized for easier access
   updatedAt: { type: Date, default: null },
 
   // total votes

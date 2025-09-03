@@ -435,3 +435,82 @@ Oh and about the uuid...
 So we also want the toast which gets added into the array to be removed after 3sec. And to remove an item from an array, you would need a way to identify the item you want to remove. And how would you identify it? Using the index of the element when it was inserted isn't reliable because the index will get changed after a new toast arrives. You might think of updating the indexes of each toast each time after a new toast arrives, but that's too many steps. So to avoid all of the complexity, we just use uuid. A uuid is basically just a random string that gets generated, and its said that the chances of a duplicate uuid ever being generated are astronomically low. So that's why uuid.
 
 But I think we could have used time as an id too. Idk why we chose uuid instead. One unlikely scenario where time could case problems is if two notifications get sent in the same millisecond, but I don't know if it happens commonly enough to worry about. But even that wouldn't really be problematic right? I mean, multiple toasts would get removed instead of one, so that is still the intended behavior. Maybe gpt was hallucinating when it said uuids are better.
+
+## chapter 5
+Most of the frontend utilities have been implemented, and I was about to start working on page components like post cards, post pages, board pages and so on, but felt like I should review my backend a little bit first. And I also thought that this would be a good time to talk about the paginated feed I had implemented.
+### backend
+first see [this](pagination) if you are unfamiliar with pagination
+
+As returning one thousand posts in a single response isn't ideal, we paginate. And I decided to go with cursor-based pagination. Reasons being I understand it better (i dont understand how offset works), and it is also apparently more efficient. 
+
+Before getting into details about the function, I will first say how I envision pagination to work in my app. 
+
+So we want the backend to return only `pageSize` number of pages based on the cursor that has been included in the request. If the feed is sorted according to `sortField`, the pagination function is going to use the the page `n` 's last post's `sortField` to fetch the page `n+1`. For example, if the feed is sorted according to `createdAt`, the posts in the page `n+1` will be older than page `n`'s last post's `createdAt`.
+
+When a user clicks the "next" button to fetch the next page of the feed, the cursor is included in the request. And the backend can use the cursor included in the request to return the next page. 
+
+What if the user has opened the feed for the first time, and does not have the cursor? In that case, the request is sent without the cursor in the query parameters. When no cursor has been included, the backend simply fetches the top `pageSize` posts according to the `sortField` and sends them as the response. Now if the user wants to see the next page, the cursor to include in the parameters is available.
+
+What about previous pages? We could implement navigating to previous page in the exact same way as navigating to the next page. Instead of fetching posts older than the cursor, you would fetch posts newer than the cursor. And you would also have to add a way to distinguish between next page and previous page requests. 
+
+But I decided to do it in a different way. In my application, the contents of each page are extremely lightweight. Each page just consists of simple metadata about posts and nothing else. So I thought that we could just cache the requested pages on the frontend. Caching each page's cursor is an option too, and it would be even more lightweight, but I want to go with caching the whole page. 
+
+I haven't implemented the frontend caching part yet. And honestly, I don't know anything about how I am going to do it yet. But here's what I think I may have to do: For each page received, the frontend would have to keep a track of each page along with it's page number. When a page number which is available in the cache is fetched, we don't make a request to the backend and return the cached page. 
+
+When should the cache be cleared? This is the part I am the most confused about currently. I am guessing it should happen either when a request gets made to `/feed` route without cursor included in the parameters, or... if a request is made to any route other than `/feed`? I thought so, but there is one thing I don't know how my app is going to handle at all. Say you are currently on page 4 of the feed, you click on one of the posts in the feed and it takes you to that post's page, you read the post and want to go back to the feed now, so you click the "go back <-" button in the browser. What happens now? If delete the cache after a request is made to a route which isn't `/feed`, the user can't go back to page 4 anymore. So maybe I can add my custom go back button maybe? I don't know, I need to look into it more seriously, which I will later when I am working with the frontend.
+
+#### utils/paginateQuery.js
+Initially, I had implemented the entire pagination within the `getFeed()` controller itself. But I soon realized that the "pagination" pattern is something I am going to use in several other places too (such as in `getPostsByBoard` or `getPostsByUser`). And I don't want to write the everything all over again there. So I decided to separate the pagination logic as a utility function. 
+
+`paginateQuery()` takes things like `filter`, `sortField`, `Model` etc. as parameters. They are required to fetch the a page of items from the specified collection. We also use `_id` of the items as a tie-breaker for when two items have the same `sortedField`. And there isn't really much to say about it. But one thing I would like to mention is how well chatgpt implemented it. Have a look at the parameters it takes
+```javascript
+async function paginateQuery({
+  Model,    // collection/model to query
+  filter = {},  
+  cursor,   // cursor base-64 string from client
+  sortField = 'createdAt',
+  sortOrder = -1,
+  limit = 10,   // number of items per page
+  populate = [],    // fields of the model to populate
+  projection = null,    // fields from the model to return
+}) {
+	// ...
+}
+```
+I didn't even get the idea that to pass populate and projection as parameters, but doing it makes so much sense. 
+
+In my previous implementation, I used the `_id` of the post as the cursor instead of values of specific fields like `createdAt` or `voteCount`. I thought that it was simplistic, but the backend would have to make a database query to get the values of `createdAt` to actually fetch the page contents. That query could be avoided if I had passed the value of `createdAt` directly. So that's what I did when I updated it. Instead of using `_id` as the cursor, we use `base64({_id: id, sortField: sortField})`.  Now, the backend wont have to perform that additional query to get the value of cursor's `sortField`.
+
+Why bother with base64 encoding? Tbh, I did it for the sole reason that it looked better to me and nothing else. Something about exposing information so plainly in the url feels kinda wrong. Yeah yeah yeah, I know, I know, base64 can be decoded in an instant, so its all still practically exposed. Yes, that's why I said that it was an aesthetic choice.  One thing I will mention is this `Buffer.from(JSON.stringify(payload)).toString('base64')`. The reason that `Buffer.from()` function is used because apparently you cannot convert a string (which `JSON.stringify()` returns) to base64 directly. So you have to first convert it to raw binary data using `Buffer.from()`, then you can use `toString('base64')`.
+
+I then used the utility function to implement the `getFeed()` controller. I also added pagination to `getPostsByBoard()` and `getPostsByUser()` controllers. 
+
+And while I was doing all that, I realized some pretty serious problems with all the code I had written.
+
+#### misc. changes
+The first problem was simple, but may substantially improve performance. There were many fields in my code which contained only references to other documents. It is usually not a problem and in fact, a good thing because it keeps the data consistent and avoids redundancy too. But, if any of such fields are going to need to be populated often, the a database query is also going to run just as often. And the database query could be avoided if the field was denormalized. 
+
+For example, the `author` and `board` fields in my `Post` model contained only references. So to get the name of the author and board, the backend would have to query the database every time a post needs to displayed. And all of that could have been avoided if I just added additional fields `authorName` and `boardName`. 
+
+The other field I denormalized was `joinedBoards` in the `User` model. This was slightly trickier to implement. As `joinedBoards` is an array, I couldn't just add another array `joinedBoardNames`, I had to change the `joinedBoards` array to instead store values like `{ boardId, boardName }`. 
+That was the easy part. The problem occurred in `joinBoard()` and `leaveBoard()` controllers. The two functions use `user.joinedBoards.includes(boardId)` to check if the user is in the board. The problem is, `includes()` checks the memory address of the object which is passed to it and the objects in the array. This wasn't a problem in before the denormalization because `joinedBoards` was an array of strings, and strings are primitives. So instead of `includes()`, I had to use `user.joinedBoards.some(board => board.boardId.equals(boardId))`. 
+
+I denormalized some other fields too, such as `userName`, `postTitle`, etc.
+
+That was the first fix I did. The second was a more serious and a subtler one. 
+
+Many controllers in the application had a behavior similar to
+1. `find()` a document from the database.
+2. Modify it in some way.
+3. `save()` the document back to the database.
+And node js executes all of this asynchronously. 
+
+I think you can see where this is going. It's the lost update problem. Lets take the `voteOnPost()` controller as an example, as I feel its the most susceptible to the problem. The user clicks the upvote button two times very quickly, which will trigger two `voteOnPost()` calls. The problem is, before the first `voteOnPost()` call has called `save()`, the second `voteOnPost()` call calls `find()`. And that will cause the second upvote button update to be lost. 
+
+To avoid it, it should be made sure that whole process happens in a single call. So, instead of using `find()`, modify, then `save()`, we use `updateOne()` or `updateMany()` functions provided by mongoose. So I refactored the `voteOnPost()` and `voteOnComment()` functions accordingly. It was interesting how the restriction of strictly only using `updateOne()` or `updateMany()` affected the way the functions had to be written. `updateOne()` and `updateMany()` also take a filter parameter which specifies the documents which that should get updated. We use that filter to specify how the vote value should change based on its current value. 
+
+I should keep the lost updates in mind from now on. I implemented the atomic behavior in only the vote functions and nowhere else though. I didn't feel the necessity anywhere else. I considered implementing it in the `joinBoard` or `leaveBoard` controllers, but decided that I would instead just show "loading" on the frontend to prevent the user from making any other requests until the join or leave operation completes.
+
+And... That was all of what I did. I will start working on the frontend again from tomorrow now. One thing I am feeling a little worried about is that I made ALL those changes to the app in only a single commit. So if anything has gone wrong, I don't have the option to just rollback as the last commit is from a long time ago. Ugh whatever I am not going to think about it. I think it should work because it all seemed to make sense to me as I was writing all of it. But.. Idk. 
+
+ok bye.

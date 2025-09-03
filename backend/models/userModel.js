@@ -7,7 +7,10 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     deleted: { type: Boolean, default: false },
     isAdmin: { type: Boolean, default: false },
-    joinedBoards: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Board' }],
+    joinedBoards: [{
+        boardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Board', required: true },
+        boardName: { type: String, required: true }
+    }],
     followedTags: [{ type: String }]
 });
 

@@ -23,8 +23,10 @@ const createComment = async (req, res) => {
     // adding the comment to db directly using create function    
     const comment = await Comment.create({
       post: postId,
+      postTitle: post.title, 
       parentComment: parentCommentId || null,
       author: userId,
+      authorName: req.user.userName,
       content
     }); 
 
@@ -44,14 +46,13 @@ const getPostComments = async (req, res) => {
   try {
     // fetching all parent comments of the post by searching through the comments collection
     const comments = await Comment.find({ post: postId, parentComment: null })
-      .sort({ createdAt: -1 })  // oldest to newest
-      .populate('author', 'username');
+      .sort({ createdAt: -1 });  // oldest to newest
 
     // sending the response
     res.json(comments);
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: 'Failed to fetch comments' });
+    res.status(500).json({ error: 'Failed to fetch comments of the post' });
   }
 };
 
@@ -63,8 +64,7 @@ const getCommentReplies = async (req, res) => {
   try {
     // fetching all replies by seraching through the comments collection
     const replies = await Comment.find({ parentComment: commentId })
-      .sort({ createdAt: 1 })  // oldest to newest
-      .populate('author', 'username');
+      .sort({ createdAt: 1 });  // oldest to newest
 
     // sending the response
     res.json(replies);
@@ -74,47 +74,55 @@ const getCommentReplies = async (req, res) => {
   }
 };
 
-// comment votes handler
+// atomic comment votes handler
 const voteOnComment = async (req, res) => {
-  // commendId from route params
-  const { commentId } = req.params;
-  const { value } = req.body;
-  const userId = req.user.userId;  // _id of the user from user.userId (user header was added by requireAuth middleware)
+    // commendId from route params
+    const { commentId } = req.params;
+    const { value } = req.body;
+    const userId = req.user.userId; // _id of the user
 
-  // checking if the value is valid
-  if (![1, -1].includes(value)) {
-    return res.status(400).json({ error: 'Invalid vote value' });
-  }
-
-  try {
-    // fetching the comment
-    const comment = await Comment.findById(commentId);
-    if (!comment) return res.status(404).json({ error: 'Comment not found' });
-
-    // check if the user has already voted
-    const existingVote = comment.votes.find(v => v.user.toString() === userId.toString());
-
-    // voting logic
-    if (existingVote) {
-      if (existingVote.value === value) {
-        comment.votes = comment.votes.filter(v => v.user.toString() !== userId.toString());
-        comment.voteCount -= value;
-      } else {
-        // change direction
-        existingVote.value = value;
-        comment.voteCount += 2 * value;
-      }
-    } else {
-      comment.votes.push({ user: userId, value });
-      comment.voteCount += value;
+    // checking if the value is valid
+    if (![1, -1].includes(value)) {
+        return res.status(400).json({ error: 'Invalid vote value' });
     }
 
-    // saving the vote to db and sending the response
-    await comment.save();
-    res.json({ voteCount: comment.voteCount });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to vote' });
-  }
+    try {
+        let comment = null;
+
+        // try to change an existing vote from -value to value
+        let result = await Comment.updateOne(
+            { _id: commentId, votes: { $elemMatch: { user: userId, value: -value } } },
+            { $set: { "votes.$.value": value }, $inc: { voteCount: 2 * value } }
+        );
+        if (result.modifiedCount > 0) {
+            comment = await Comment.findById(commentId).select('voteCount').lean();
+            return res.json({ voteCount: comment.voteCount });
+        }
+
+        // try to remove an existing vote of the same value
+        result = await Comment.updateOne(
+            { _id: commentId, votes: { $elemMatch: { user: userId, value: value } } },
+            { $pull: { votes: { user: userId } }, $inc: { voteCount: -value } }
+        );
+        if (result.modifiedCount > 0) {
+            comment = await Comment.findById(commentId).select('voteCount').lean();
+            return res.json({ voteCount: comment.voteCount });
+        }
+        
+        // add a new vote
+        result = await Comment.updateOne(
+            { _id: commentId, "votes.user": { $ne: userId } },
+            { $push: { votes: { user: userId, value } }, $inc: { voteCount: value } }
+        );
+
+        comment = await Comment.findById(commentId).select('voteCount').lean();
+        
+        res.json({ voteCount: comment.voteCount });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to vote on comment' });
+    }
 };
 
 // handler to edit a comment
@@ -166,7 +174,7 @@ const deleteComment = async (req, res) => {
     if (!isAuthor && !isMod)
       return res.status(403).json({ error: "Not authorized" });
 
-    // we hard delete if a comment has no replies
+    // hard delete if a comment has no replies
     const hasReplies = await Comment.exists({ replyTo: comment._id });
 
     if (hasReplies) {
@@ -192,11 +200,11 @@ const getCommentsByUser = async (req, res) => {
 
   try {
     const comments = await Comment.find({ author: userId, deleted: false })
-      .populate('post', 'title') // include post title
       .sort({ createdAt: -1 });
 
     res.json({ comments });
   } catch (err) {
+    console.error("Error fetching user comments:", err);
     res.status(500).json({ error: 'Server error' });
   }
 };

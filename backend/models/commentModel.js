@@ -12,10 +12,12 @@ const voteSchema = new mongoose.Schema({
 const commentSchema = new mongoose.Schema({
   // references to either post or parent comment
   post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+  postTitle: { type: String, required: true }, // denormalized for easier access
   parentComment: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
   
   // elementary stuff
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  authorName: { type: String, required: true }, // denormalized for easier access
   content: { type: String, required: true },
   updatedAt: { type: Date, default: null },
   

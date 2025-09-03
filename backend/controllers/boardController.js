@@ -59,8 +59,9 @@ const joinBoard = async (req, res) => {
     if (!board) return res.status(404).json({ error: 'Board not found' });
 
     // joining logic
-    if (!user.joinedBoards.includes(boardId)) {
-      user.joinedBoards.push(boardId);
+    const hasJoined = user.joinedBoards.some(board => board.boardId.equals(boardId));
+    if (!hasJoined) {
+      user.joinedBoards.push({ boardId: boardId, boardName: board.name });
       board.membersCount += 1;
       await user.save();
       await board.save();
@@ -86,7 +87,8 @@ const leaveBoard = async (req, res) => {
 
     if (!board) return res.status(404).json({ error: 'Board not found' });
 
-    if (user.joinedBoards.includes(boardId)) {
+    const hasJoined = user.joinedBoards.some(board => board.boardId.equals(boardId));
+    if (hasJoined) {
       // checking if user is the last moderator
       if (board.moderators.length === 1 && board.moderators.includes(userId)) {
         return res.status(400).json({
@@ -95,7 +97,7 @@ const leaveBoard = async (req, res) => {
       }
 
       // leaving logic
-      user.joinedBoards = user.joinedBoards.filter(id => id.toString() !== boardId.toString());
+      user.joinedBoards = user.joinedBoards.filter(board => board.boardId.toString() !== boardId.toString());
       if (board.moderators.includes(userId))
         board.moderators = board.moderators.filter(id => id.toString() !== userId.toString());
       board.membersCount = Math.max(0, board.membersCount - 1); // safe decrement

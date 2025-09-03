@@ -5,7 +5,6 @@ const requireAuth = require("../middleware/authMiddleware");
 const router = express.Router();
 
 router.post("/", requireAuth, createPost);
-router.get("/", getPosts);
 router.get("/:postId", getPostById);
 router.post("/:postId/vote", requireAuth, voteOnPost);
 router.patch('/posts/:postId', requireAuth, editPost);

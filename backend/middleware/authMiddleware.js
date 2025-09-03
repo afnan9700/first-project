@@ -12,7 +12,7 @@ function requireAuth(req, res, next) {
         // verifying the jwt using our secret key and storing the decoded payload
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         // adding a new header to the request which contains the decoded payload
-        // decoded payload: { userId: user._id }
+        // decoded payload: { userId: user._id, userName: user.username }
         req.user = decoded;
         next();
     } catch (err) {
