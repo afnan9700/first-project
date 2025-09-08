@@ -59,8 +59,7 @@ const User = require('./models/userModel');
 app.get('/api/me', requireAuth, async (req, res) => {
   try {
     // user = { _id, username }
-    const user = await User.findById(req.user.userId).select('_id username');
-    if (!user) return res.status(401).json({ error: 'User not found' });
+    const user = { _id: req.user.userId, username: req.user.userName };
     res.json({ user });
   } catch (err) {
     return res.status(500).json({ error: 'Internal server error' });

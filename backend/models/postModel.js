@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 // main schema
 const postSchema = new mongoose.Schema({
   // the elementary stuff
-  author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   authorName: { type: String, required: true },   // denormalized for easier access
   title: { type: String, required: true },
   content: { type: String },
@@ -14,14 +14,6 @@ const postSchema = new mongoose.Schema({
 
   // total votes
   voteCount: { type: Number, default: 0 },
-
-  // an array storing (user, vote_value) for the users that vote
-  votes: [
-    {
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      value: { type: Number, enum: [1, -1] },
-    }
-  ],
 
   // flag for soft deletion
   deleted: {

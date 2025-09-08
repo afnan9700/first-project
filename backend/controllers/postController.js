@@ -1,6 +1,7 @@
 // importing necessary modules
 const Post = require("../models/postModel");
 const Board = require("../models/boardModel");
+const PostVote = require("../models/postVoteModel");
 const paginateQuery = require('../utils/paginateQuery');
 
 // function to add the post to db
@@ -42,7 +43,6 @@ const getPostById = async (req, res) => {
 
   try {
     // storing the post object with postId in a variable
-    // the author field is populated with referenced User's username
     const post = await Post.findById(postId);
 
     if (!post) {
@@ -58,56 +58,64 @@ const getPostById = async (req, res) => {
   }
 };
 
-
 // atomic function to handle upvotes and downvotes
 const voteOnPost = async (req, res) => {
-    // user is added to the request by the authMiddleware
-    const userId = req.user.userId;
-    const { postId } = req.params;
-    const { value } = req.body;
+  const userId = req.user.userId;
+  const { postId } = req.params;
+  const { value } = req.body;
 
-    // checking if the value is valid
-    if (![1, -1].includes(value)) {
-        return res.status(400).json({ error: 'Vote value must be 1 or -1' });
+  if (![1, -1].includes(value)) {
+    return res.status(400).json({ error: "Vote value must be 1 or -1" });
+  }
+
+  const session = await mongoose.startSession();  // getting the session object
+  
+  session.startTransaction();
+
+  try {
+    const existingVote = await PostVote.findOne({ postId, userId }).session(session);
+
+    let delta = 0;  // variable to track change in voteCount
+
+    if (existingVote) {
+      // removing vote from PostVote collection
+      if (existingVote.value === value) {
+        await PostVote.deleteOne({ _id: existingVote._id }).session(session);
+        delta = -value;
+      } else {
+        // changing vote in PostVote collection
+        await PostVote.updateOne(
+          { _id: existingVote._id },
+          { $set: { value } }
+        ).session(session);
+        delta = 2 * value;
+      }
+    } else {
+      // adding vote in PostVote collection
+      await PostVote.create([{ postId, userId, value }], { session });
+      delta = value;
     }
 
-    try {
-        let post = null;
-        
-        // try to change an existing vote from -value to value
-        let result = await Post.updateOne(
-            { _id: postId, votes: { $elemMatch: { user: userId, value: -value } } },
-            { $set: { "votes.$.value": value }, $inc: { voteCount: 2 * value } }
-        );
-        if (result.modifiedCount > 0) {
-            post = await Post.findById(postId).select('voteCount').lean();
-            return res.json({ voteCount: post.voteCount });
-        }
-
-        // try to remove an existing vote of the same value
-        result = await Post.updateOne(
-            { _id: postId, votes: { $elemMatch: { user: userId, value: value } } },
-            { $pull: { votes: { user: userId } }, $inc: { voteCount: -value } }
-        );
-        if (result.modifiedCount > 0) {
-            post = await Post.findById(postId).select('voteCount').lean();
-            return res.json({ voteCount: post.voteCount });
-        }
-        
-        // add a new vote
-        result = await Post.updateOne(
-            { _id: postId, "votes.user": { $ne: userId } },
-            { $push: { votes: { user: userId, value } }, $inc: { voteCount: value } }
-        );
-
-        post = await Post.findById(postId).select('voteCount').lean();
-        
-        res.json({ voteCount: post.voteCount });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error while voting' });
+    // changing the voteCount in Post collection
+    if (delta !== 0) {
+      await Post.updateOne(
+        { _id: postId },
+        { $inc: { voteCount: delta } }
+      ).session(session);
     }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const post = await Post.findById(postId).select("voteCount").lean();
+    res.json({ voteCount: post.voteCount });
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Error voting on post:", err);
+    res.status(500).json({ error: "Server error while voting" });
+  } 
 };
 
 // get posts of a board with pagination
