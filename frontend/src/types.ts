@@ -6,16 +6,3 @@ export type NavItem = {
   authLabel?: string;   // optional label if user is authenticated
   authHref?: string;    // optional link if user is authenticated
 };
-
-// type for post metadata
-export interface PostMeta {
-  _id: string;
-  title: string;
-  voteCount: number;
-  createdAt: string;
-  author: string;     // user _id
-  authorName: string;
-  board: string;      // board _id
-  boardName: string;
-  commentCount: number;
-}

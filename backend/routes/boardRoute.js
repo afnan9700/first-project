@@ -13,6 +13,7 @@ const {
 const { getPostsByBoard } = require('../controllers/postController');
 const requireAuth = require('../middleware/authMiddleware');
 const requireModerator = require('../middleware/requireModerator');
+const checkAuth = require('../middleware/checkAuth');
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.post('/create', requireAuth, createBoard);
 router.get('/user/:userId', getUserBoards);
 router.post('/:boardId/join', requireAuth, joinBoard);
 router.post('/:boardId/leave', requireAuth, leaveBoard);
-router.get('/board/:boardId', getPostsByBoard);
+router.get('/board/:boardId', checkAuth, getPostsByBoard);
   
 // mod related routes
 router.patch('/board/:boardId', requireAuth, requireModerator, editBoard);

@@ -38,24 +38,42 @@ const createPost = async (req, res) => {
 
 // function to get post by its id
 const getPostById = async (req, res) => {
-  // post id is passed in the url as a route param
-  const { postId } = req.params;
+    try {
+        const { postId } = req.params;
+        const userId = req.user ? req.user.userId : null;
 
-  try {
-    // storing the post object with postId in a variable
-    const post = await Post.findById(postId);
+        // --- Step 1: Fetch the main post document ---
+        const post = await Post.findById(postId).lean();
 
-    if (!post) {
-      return res.status(404).json({ error: "Post not found" });
+        // Check if the post exists
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        // --- Step 2: If the user is authenticated, fetch their vote ---
+        let userVote = 0; // Default vote status is 0 (no vote) for guests
+        if (userId) {
+            // Find the specific vote by this user on this post
+            const vote = await PostVote.findOne({ postId, userId }).lean();
+            if (vote) {
+                userVote = vote.value; // Set to 1 or -1 if a vote exists
+            }
+        }
+
+        // --- Step 3: Combine the data and send the response ---
+        // Create the final response object by spreading the post fields
+        // and adding the user's vote status.
+        const responseData = {
+            ...post,
+            userVote: userVote
+        };
+        
+        res.json(responseData);
+
+    } catch (err) {
+        console.error("Error fetching post by ID:", err);
+        res.status(500).json({ error: "Failed to fetch post" });
     }
-
-    // sending the response
-    res.json(post);
-  } 
-  catch (err) {
-    console.error("Error fetching post:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
 };
 
 // atomic function to handle upvotes and downvotes
@@ -121,31 +139,58 @@ const voteOnPost = async (req, res) => {
 // get posts of a board with pagination
 const getPostsByBoard = async (req, res) => {
   const { boardId } = req.params;
-
-  const { cursor, limit = 10, sort = 'new' } = req.query;
+  const userId = req.user ? req.user.userId : null;
 
   try {
-    const sortField = sort === 'new' ? 'createdAt' : 'createdAt'; 
+    const { cursor, limit = 10, sort = 'new' } = req.query; 
 
+    const sortField = sort === 'new' ? 'createdAt' : 'createdAt'; // later extendable
+    const sortOrder = -1;
+
+    // fetching a page
     const { items, nextCursor, hasMore } = await paginateQuery({
       Model: Post,
-      filter: { board: boardId },
+      filter: { board: boardId, deleted: false },
       cursor,
       sortField,
       sortOrder,
-      limit,
+      limit
     });
 
-    const posts = items.map(post => ({
+    let userVotesMap = {}; // Default to an empty map for guests
+    if (userId && items.length > 0) {
+        // 1. Get all the post IDs from the current page.
+        const postIds = items.map(post => post._id);
+
+        // 2. Perform ONE query to find all of the user's votes for these specific posts.
+        const userVotes = await PostVote.find({
+            userId: userId,
+            postId: { $in: postIds }
+        }).lean();
+
+        // 3. Convert the array of votes into a Map for quick lookups (O(1) complexity).
+        // The key is the postId, the value is the vote (1 or -1).
+        userVotesMap = userVotes.reduce((map, vote) => {
+            map[vote.postId] = vote.value;
+            return map;
+        }, {});
+    }
+
+    // ensuring consistent response structure
+    const feedItems = items.map(post => ({
       _id: post._id,
       title: post.title,
       voteCount: post.voteCount,
       createdAt: post.createdAt,
-      author: post.authorName,
+      author: post.author,
+      authorName: post.authorName,
+      board: post.board,
+      boardName: post.boardName,
       commentCount: post.commentCount || 0,
+      userVote: userVotesMap[post._id] || 0
     }));
 
-    res.status(200).json({ posts, nextCursor, hasMore });
+    res.json({ posts: feedItems, nextCursor, hasMore });
   } catch (err) {
     console.error("Error fetching posts by board:", err);
     res.status(500).json({ error: "Failed to fetch posts" });
@@ -154,36 +199,63 @@ const getPostsByBoard = async (req, res) => {
 
 // get posts by a specific user with pagination
 const getPostsByUser = async (req, res) => {
-  const { userId } = req.params;
+  const { authorId } = req.params;
 
-  const { cursor, limit = 10, sort = 'new' } = req.query;
+  const userId = req.user ? req.user.userId : null;
 
   try {
-    const sortField = sort === 'new' ? 'createdAt' : 'createdAt';
+    const { cursor, limit = 10, sort = 'new' } = req.query; 
+
+    const sortField = sort === 'new' ? 'createdAt' : 'createdAt'; // later extendable
     const sortOrder = -1;
 
+    // fetching a page
     const { items, nextCursor, hasMore } = await paginateQuery({
       Model: Post,
-      filter: { author: userId, deleted: false },
+      filter: { author: authorId, deleted: false },
       cursor,
       sortField,
       sortOrder,
-      limit,
+      limit
     });
 
-    const posts = items.map(post => ({
+    let userVotesMap = {}; // Default to an empty map for guests
+    if (userId && items.length > 0) {
+        // 1. Get all the post IDs from the current page.
+        const postIds = items.map(post => post._id);
+
+        // 2. Perform ONE query to find all of the user's votes for these specific posts.
+        const userVotes = await PostVote.find({
+            userId: userId,
+            postId: { $in: postIds }
+        }).lean();
+
+        // 3. Convert the array of votes into a Map for quick lookups (O(1) complexity).
+        // The key is the postId, the value is the vote (1 or -1).
+        userVotesMap = userVotes.reduce((map, vote) => {
+            map[vote.postId] = vote.value;
+            return map;
+        }, {});
+    }
+
+    // ensuring consistent response structure
+    const feedItems = items.map(post => ({
       _id: post._id,
       title: post.title,
       voteCount: post.voteCount,
       createdAt: post.createdAt,
-      board: post.boardName,
+      author: post.author,
+      authorName: post.authorName,
+      board: post.board,
+      boardName: post.boardName,
       commentCount: post.commentCount || 0,
+      userVote: userVotesMap[post._id] || 0
     }));
 
-    res.json({ posts, nextCursor, hasMore });
+    res.json({ posts: feedItems, nextCursor, hasMore });
   } catch (err) {
-    console.error("Error fetching posts by user:", err);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Error fetching posts by board:", err);
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 };
 
