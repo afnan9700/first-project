@@ -1,12 +1,6 @@
 // importing the necessary stuff
 const mongoose = require('mongoose');
 
-// temp vote schema schema
-const voteSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  value: { type: Number, enum: [1, -1], required: true }
-}, { _id: false });
-
 // main schema
 // { timestamps: true } to auto add createdAt, updatedAt values
 const commentSchema = new mongoose.Schema({
@@ -22,7 +16,11 @@ const commentSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: null },
   
   // votes for the comment
-  votes: [voteSchema],
+  votes: {
+    type: Map,
+    of: { type: Number, enum: [1, -1] },  // type of map value
+    default: {}
+  },
   voteCount: { type: Number, default: 0 },
 
   // flag for soft deletion

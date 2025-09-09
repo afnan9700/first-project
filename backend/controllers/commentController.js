@@ -76,53 +76,52 @@ const getCommentReplies = async (req, res) => {
 
 // atomic comment votes handler
 const voteOnComment = async (req, res) => {
-    // commendId from route params
-    const { commentId } = req.params;
-    const { value } = req.body;
-    const userId = req.user.userId; // _id of the user
+  // commendId from route params
+  const { commentId } = req.params;
+  const { value } = req.body;
+  const userId = req.user.userId;
 
-    // checking if the value is valid
-    if (![1, -1].includes(value)) {
-        return res.status(400).json({ error: 'Invalid vote value' });
+  if (![1, -1].includes(value)) {
+    return res.status(400).json({ error: "Invalid vote value" });
+  }
+
+  try {
+    const userKey = `votes.${userId}`;
+    let result;
+
+    // try to change an existing vote from -value to value
+    result = await Comment.updateOne(
+      { _id: commentId, [userKey]: -value },  // condition
+      { $set: { [userKey]: value }, $inc: { voteCount: 2 * value } }
+    );
+    if (result.modifiedCount > 0) {
+      const comment = await Comment.findById(commentId).select("voteCount").lean();
+      return res.json({ voteCount: comment.voteCount });
     }
 
-    try {
-        let comment = null;
-
-        // try to change an existing vote from -value to value
-        let result = await Comment.updateOne(
-            { _id: commentId, votes: { $elemMatch: { user: userId, value: -value } } },
-            { $set: { "votes.$.value": value }, $inc: { voteCount: 2 * value } }
-        );
-        if (result.modifiedCount > 0) {
-            comment = await Comment.findById(commentId).select('voteCount').lean();
-            return res.json({ voteCount: comment.voteCount });
-        }
-
-        // try to remove an existing vote of the same value
-        result = await Comment.updateOne(
-            { _id: commentId, votes: { $elemMatch: { user: userId, value: value } } },
-            { $pull: { votes: { user: userId } }, $inc: { voteCount: -value } }
-        );
-        if (result.modifiedCount > 0) {
-            comment = await Comment.findById(commentId).select('voteCount').lean();
-            return res.json({ voteCount: comment.voteCount });
-        }
-        
-        // add a new vote
-        result = await Comment.updateOne(
-            { _id: commentId, "votes.user": { $ne: userId } },
-            { $push: { votes: { user: userId, value } }, $inc: { voteCount: value } }
-        );
-
-        comment = await Comment.findById(commentId).select('voteCount').lean();
-        
-        res.json({ voteCount: comment.voteCount });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to vote on comment' });
+    // try to remove an existing vote of the same value
+    result = await Comment.updateOne(
+      { _id: commentId, [userKey]: value }, // condition
+      { $unset: { [userKey]: "" }, $inc: { voteCount: -value } }
+    );
+    if (result.modifiedCount > 0) {
+      const comment = await Comment.findById(commentId).select("voteCount").lean();
+      return res.json({ voteCount: comment.voteCount });
     }
+
+    // add a new vote
+    result = await Comment.updateOne(
+      { _id: commentId, [userKey]: { $exists: false } },
+      { $set: { [userKey]: value }, $inc: { voteCount: value } }
+    );
+
+    const comment = await Comment.findById(commentId).select("voteCount").lean();
+    res.json({ voteCount: comment.voteCount });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to vote on comment" });
+  }
 };
 
 // handler to edit a comment
