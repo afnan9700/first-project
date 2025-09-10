@@ -1,6 +1,7 @@
 // importing the necessary stuff
 const Comment = require('../models/commentModel');
 const Post = require('../models/postModel');
+const processComments = require('../utils/processComments');
 
 // adding a new comment handler
 const createComment = async (req, res) => {
@@ -40,38 +41,44 @@ const createComment = async (req, res) => {
 
 // getting parent comments of a post
 const getPostComments = async (req, res) => {
-  // postId from route params
-  const { postId } = req.params;
+    const { postId } = req.params;
+    // Safely get the viewer's userId from the checkAuth middleware.
+    const userId = req.user ? req.user.userId : null;
 
-  try {
-    // fetching all parent comments of the post by searching through the comments collection
-    const comments = await Comment.find({ post: postId, parentComment: null })
-      .sort({ createdAt: -1 });  // oldest to newest
+    try {
+        // Fetch comments using .lean() for better performance.
+        const comments = await Comment.find({ post: postId, parentComment: null })
+            .sort({ createdAt: -1 })
+            .lean(); // Use .lean() as we are only reading data.
 
-    // sending the response
-    res.json(comments);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: 'Failed to fetch comments of the post' });
-  }
+        // Process the comments to add userVote and clean the output.
+        const processedComments = processComments(comments, userId);
+        
+        res.json(processedComments);
+    } catch (err) {
+        console.error("Error fetching post comments:", err);
+        res.status(500).json({ error: 'Failed to fetch comments of the post' });
+    }
 };
 
 // getting replies of a comment
 const getCommentReplies = async (req, res) => {
-  // commentId from route params
-  const { commentId } = req.params;
+    const { commentId } = req.params;
+    const userId = req.user ? req.user.userId : null;
 
-  try {
-    // fetching all replies by seraching through the comments collection
-    const replies = await Comment.find({ parentComment: commentId })
-      .sort({ createdAt: 1 });  // oldest to newest
+    try {
+        const replies = await Comment.find({ parentComment: commentId })
+            .sort({ createdAt: 1 })
+            .lean();
 
-    // sending the response
-    res.json(replies);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: 'Failed to fetch replies' });
-  }
+        // Use the same helper function for replies.
+        const processedReplies = processComments(replies, userId);
+
+        res.json(processedReplies);
+    } catch (err) {
+        console.error("Error fetching comment replies:", err);
+        res.status(500).json({ error: 'Failed to fetch replies' });
+    }
 };
 
 // atomic comment votes handler
@@ -195,17 +202,24 @@ const deleteComment = async (req, res) => {
 };
 
 const getCommentsByUser = async (req, res) => {
-  const { userId } = req.params;
+    // This is the ID of the user whose comments we are viewing.
+    const { userId: profileUserId } = req.params;
+    // This is the ID of the person who is doing the viewing (the logged-in user).
+    const viewerId = req.user ? req.user.userId : null;
 
-  try {
-    const comments = await Comment.find({ author: userId, deleted: false })
-      .sort({ createdAt: -1 });
+    try {
+        const comments = await Comment.find({ author: profileUserId, deleted: false })
+            .sort({ createdAt: -1 })
+            .lean();
 
-    res.json({ comments });
-  } catch (err) {
-    console.error("Error fetching user comments:", err);
-    res.status(500).json({ error: 'Server error' });
-  }
+        // Process the comments using the viewer's ID to determine the vote status.
+        const processedComments = processComments(comments, viewerId);
+
+        res.json({ comments: processedComments });
+    } catch (err) {
+        console.error("Error fetching user comments:", err);
+        res.status(500).json({ error: 'Server error' });
+    }
 };
 
 module.exports = { createComment, getPostComments, getCommentReplies, voteOnComment, editComment, deleteComment, getCommentsByUser };
